@@ -1,5 +1,6 @@
 from typing import Any
 import pymysql
+import pymysql.cursors
 import os
 
 
@@ -9,11 +10,11 @@ class Database:
     """
 
     def __init__(self) -> None:
-        self.host = os.getenv("DB_HOST")
-        self.username = os.getenv("DB_USERNAME")
-        self.password = os.getenv("DB_PASSWORD")
-        self.db_name = os.getenv("DB_NAME")
-        self.db_port = int(os.getenv("DB_PORT"))
+        self.host: str = str(os.getenv("DB_HOST"))
+        self.username: str = str(os.getenv("DB_USERNAME"))
+        self.password: str = str(os.getenv("DB_PASSWORD"))
+        self.db_name: str = str(os.getenv("DB_NAME"))
+        self.db_port: int = int(str(os.getenv("DB_PORT")))
 
     def connect(self) -> pymysql.Connection:
         """
@@ -44,7 +45,8 @@ class Database:
         except:
             pass
 
-    def check_value_in_table(self, connection: pymysql.Connection, table_name: str, column_name: str, value: Any):
+    def check_value_in_table(self, connection: pymysql.Connection,
+                             table_name: str, column_name: str, value: Any):
         """
         Fungsi yang berfungsi untuk mengecek keberadaan suatu nilai di dalam tabel dan kolom.
 
@@ -60,10 +62,8 @@ class Database:
         connection.ping()
         db_cursor = connection.cursor()
         db_cursor.execute(
-            "SELECT {column}, COUNT(*) FROM {table} WHERE {column} = '{value}' GROUP BY {column}".format(
-                table=table_name, column=column_name, value=value
-            )
-        )
+            "SELECT {column}, COUNT(*) FROM {table} WHERE {column} = '{value}' GROUP BY {column}"
+            .format(table=table_name, column=column_name, value=value))
         db_cursor.fetchall()
         row_count = db_cursor.rowcount
         db_cursor.close()
@@ -84,7 +84,8 @@ class Database:
         """
         connection.ping()
         db_cursor = connection.cursor()
-        db_cursor.execute("SELECT COUNT(*) FROM {table}".format(table=table_name))
+        db_cursor.execute(
+            "SELECT COUNT(*) FROM {table}".format(table=table_name))
         row_count = db_cursor.fetchone()[0]
         db_cursor.close()
         return row_count
@@ -147,6 +148,10 @@ class Database:
             )
             self.exec_query(
                 connection,
+                "DELETE FROM `page_paragraph`",
+            )
+            self.exec_query(
+                connection,
                 "DELETE FROM `page_list`",
             )
             self.exec_query(
@@ -204,6 +209,10 @@ class Database:
             )
             self.exec_query(
                 connection,
+                "CREATE TABLE `page_paragraph` ( `id_list` int PRIMARY KEY AUTO_INCREMENT, `page_id` int, `paragraph` text )",
+            )
+            self.exec_query(
+                connection,
                 "CREATE TABLE `page_list` ( `id_list` int PRIMARY KEY AUTO_INCREMENT, `page_id` int, `list` text )",
             )
             self.exec_query(
@@ -249,6 +258,10 @@ class Database:
             self.exec_query(
                 connection,
                 "ALTER TABLE `page_scripts` ADD CONSTRAINT `pagescript_pageinfo` FOREIGN KEY (`page_id`) REFERENCES `page_information` (`id_page`) ON DELETE CASCADE",
+            )
+            self.exec_query(
+                connection,
+                "ALTER TABLE `page_paragraph` ADD CONSTRAINT `pagelist_pageinfo` FOREIGN KEY (`page_id`) REFERENCES `page_information` (`id_page`) ON DELETE CASCADE",
             )
             self.exec_query(
                 connection,

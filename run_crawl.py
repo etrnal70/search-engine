@@ -1,3 +1,4 @@
+from typing import List
 from dotenv import load_dotenv
 from src.crawling.crawl import Crawl
 from src.database.database import Database
@@ -8,21 +9,22 @@ if __name__ == "__main__":
     db = Database()
     db.create_tables()
 
-    status = os.getenv("CRAWLER_STATUS")
-    start_urls = os.getenv("CRAWLER_START_URLS").split()
-    max_threads = os.getenv("CRAWLER_MAX_THREADS")
-    crawler_duration_sec = os.getenv("CRAWLER_DURATION_SECONDS")
+    status = str(os.getenv("CRAWLER_STATUS"))
+    start_urls: List[str] = str(os.getenv("CRAWLER_START_URLS")).split()
+    max_threads = str(os.getenv("CRAWLER_MAX_THREADS"))
+    crawler_duration_sec = int(str(os.getenv("CRAWLER_DURATION_SECONDS")))
     try:
-        msb_keyword = os.getenv("CRAWLER_KEYWORD")
+        msb_keyword = str(os.getenv("CRAWLER_KEYWORD"))
     except:
         msb_keyword = ""
 
     if msb_keyword != "":
-        bfs_duration_sec = int(crawler_duration_sec) // 2
-        msb_duration_sec = int(crawler_duration_sec) // 2
+        bfs_duration_sec = crawler_duration_sec // 2
+        msb_duration_sec = crawler_duration_sec // 2
     else:
-        bfs_duration_sec = int(crawler_duration_sec)
+        bfs_duration_sec = crawler_duration_sec
         msb_duration_sec = 0
 
-    c = Crawl(status, start_urls, max_threads, bfs_duration_sec, msb_duration_sec, msb_keyword)
+    c = Crawl(status, start_urls, max_threads, bfs_duration_sec,
+              msb_duration_sec, msb_keyword)
     c.run()

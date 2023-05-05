@@ -23,14 +23,14 @@ class Crawl:
         msb_keyword (str): Keyword yang digunakan untuk crawler MSB
     """
 
-    def __init__(
-        self, status, start_urls: list, max_threads: str, bfs_duration_sec: str, msb_duration_sec: str, msb_keyword: str
-    ) -> None:
+    def __init__(self, status, start_urls: list, max_threads: str,
+                 bfs_duration_sec: int, msb_duration_sec: int,
+                 msb_keyword: str) -> None:
         self.status = status
         self.start_urls = start_urls
         self.max_threads = int(max_threads)
-        self.bfs_duration_sec = int(bfs_duration_sec)
-        self.msb_duration_sec = int(msb_duration_sec)
+        self.bfs_duration_sec = bfs_duration_sec
+        self.msb_duration_sec = msb_duration_sec
         self.msb_keyword = msb_keyword
         self.db = Database()
         self.crawl_utils = CrawlUtils()
@@ -51,7 +51,9 @@ class Crawl:
                 links = soup.findAll("a", href=True)
                 for i in links:
                     complete_url = urljoin(url, i["href"]).rstrip("/")
-                    if self.crawl_utils.is_valid_url(complete_url) and complete_url not in self.visited_urls:
+                    if self.crawl_utils.is_valid_url(
+                            complete_url
+                    ) and complete_url not in self.visited_urls:
                         self.url_queue.put(complete_url)
 
     def run(self) -> int:
@@ -61,14 +63,15 @@ class Crawl:
         Returns:
             page_count (int): Jumlah halaman yang berhasil dicrawl.
         """
-        self.url_queue = queue.Queue()
+        self.url_queue: queue.Queue = queue.Queue()
         self.start_time: float = time.time()
 
         db_connection = self.db.connect()
         if self.status.lower() == "start":
             self.db.truncate_tables()
         self.visited_urls = self.crawl_utils.get_visited_urls(db_connection)
-        self.page_count_start = self.db.count_rows(db_connection, "page_information")
+        self.page_count_start = self.db.count_rows(db_connection,
+                                                   "page_information")
 
         urls_string = ""
         if len(self.visited_urls) < 1:
@@ -83,15 +86,16 @@ class Crawl:
             for url in last_urls:
                 urls_string += url + " "
             self.scrape_links_for_resume(last_urls)
-        urls_string = urls_string[0 : len(urls_string) - 1]
+        urls_string = urls_string[0:len(urls_string) - 1]
 
         crawl_id = self.crawl_utils.insert_crawling(
-            db_connection, urls_string, "", 0, (self.bfs_duration_sec + self.msb_duration_sec)
-        )
+            db_connection, urls_string, "", 0,
+            (self.bfs_duration_sec + self.msb_duration_sec))
         db_connection.close()
 
         print("Running breadth first search crawler...")
-        bfs = BreadthFirstSearch(crawl_id, self.url_queue, self.visited_urls, self.bfs_duration_sec, self.max_threads)
+        bfs = BreadthFirstSearch(crawl_id, self.url_queue, self.visited_urls,
+                                 self.bfs_duration_sec, self.max_threads)
         bfs.run()
         print("Finished breadth first search crawler...")
 
@@ -110,11 +114,13 @@ class Crawl:
         print("Finished modified similarity based crawler...")
 
         db_connection = self.db.connect()
-        self.page_count_end = self.db.count_rows(db_connection, "page_information")
+        self.page_count_end = self.db.count_rows(db_connection,
+                                                 "page_information")
         page_count = self.page_count_end - self.page_count_start
         time_now = time.time() - self.start_time
         duration_crawl = int(time_now)
-        self.crawl_utils.update_crawling(db_connection, crawl_id, page_count, duration_crawl)
+        self.crawl_utils.update_crawling(db_connection, crawl_id, page_count,
+                                         duration_crawl)
         db_connection.close()
 
         return page_count

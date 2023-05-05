@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 from urllib.parse import urlparse
 import requests
 from concurrent.futures import ThreadPoolExecutor
@@ -39,7 +39,7 @@ class CrawlUtils:
         parsed = urlparse(url)
         return parsed.scheme in ["http", "https"] and bool(parsed.netloc)
 
-    def get_page(self, url: str) -> Any:
+    def get_page(self, url: str) -> Optional[Any]:
         """
         Fungsi untuk melakukan permintaan (request) ke URL.
 
@@ -55,7 +55,7 @@ class CrawlUtils:
             return res
         except Exception as e:
             print(e)
-            return
+            return None
 
     def running_thread_count(self, futures: list) -> int:
         """
@@ -88,7 +88,7 @@ class CrawlUtils:
         size_bytes: int,
         model_crawl: str,
         duration_crawl: int,
-    ) -> None:
+    ) -> int:
         """
         Fungsi untuk menyimpan konten seperti teks, judul, deskripsi yang ada di halaman web ke dalam database.
 
@@ -132,7 +132,31 @@ class CrawlUtils:
         db_cursor.close()
         return inserted_id
 
-    def insert_page_form(self, db_connection: pymysql.Connection, page_id: int, form: str) -> None:
+    def insert_page_paragraph(
+        self,
+        db_connection: pymysql.Connection,
+        page_id: int,
+        paragraph: str,
+    ) -> None:
+        """
+        Fungsi untuk menyimpan paragraf yang ada di halaman web ke dalam database.
+
+        Args:
+            db_connection (pymysql.Connection): Koneksi database MySQL
+            page_id (int): ID page dari table page_information
+            paragraph (str): Teks paragraf
+
+        Returns:
+            int: ID page dari baris yang disimpan
+        """
+        db_connection.ping()
+        db_cursor = db_connection.cursor()
+        query = "INSERT INTO `page_paragraph` (`page_id`, `paragraph`) VALUES (%s, %s)"
+        db_cursor.execute(query, (page_id, paragraph))
+        db_cursor.close()
+
+    def insert_page_form(self, db_connection: pymysql.Connection, page_id: int,
+                         form: str) -> None:
         """
         Fungsi untuk menyimpan form yang ada di halaman web ke dalam database.
 
@@ -147,7 +171,8 @@ class CrawlUtils:
         db_cursor.execute(query, (page_id, form))
         db_cursor.close()
 
-    def insert_page_image(self, db_connection: pymysql.Connection, page_id: int, image: str) -> None:
+    def insert_page_image(self, db_connection: pymysql.Connection,
+                          page_id: int, image: str) -> None:
         """
         Fungsi untuk menyimpan gambar yang ada di halaman web ke dalam database.
 
@@ -162,7 +187,8 @@ class CrawlUtils:
         db_cursor.execute(query, (page_id, image))
         db_cursor.close()
 
-    def insert_page_linking(self, db_connection: pymysql.Connection, page_id: int, outgoing_link: str) -> None:
+    def insert_page_linking(self, db_connection: pymysql.Connection,
+                            page_id: int, outgoing_link: str) -> None:
         """
         Fungsi untuk menyimpan url linking yang ada di halaman web ke dalam database.
 
@@ -177,7 +203,8 @@ class CrawlUtils:
         db_cursor.execute(query, (page_id, outgoing_link))
         db_cursor.close()
 
-    def insert_page_list(self, db_connection: pymysql.Connection, page_id: int, list: str) -> None:
+    def insert_page_list(self, db_connection: pymysql.Connection, page_id: int,
+                         list: str) -> None:
         """
         Fungsi untuk menyimpan list yang ada di halaman web ke dalam database.
 
@@ -192,7 +219,8 @@ class CrawlUtils:
         db_cursor.execute(query, (page_id, list))
         db_cursor.close()
 
-    def insert_page_script(self, db_connection: pymysql.Connection, page_id: int, script: str) -> None:
+    def insert_page_script(self, db_connection: pymysql.Connection,
+                           page_id: int, script: str) -> None:
         """
         Fungsi untuk menyimpan script yang ada di halaman web ke dalam database.
 
@@ -207,7 +235,8 @@ class CrawlUtils:
         db_cursor.execute(query, (page_id, script))
         db_cursor.close()
 
-    def insert_page_style(self, db_connection: pymysql.Connection, page_id: int, style: str) -> None:
+    def insert_page_style(self, db_connection: pymysql.Connection,
+                          page_id: int, style: str) -> None:
         """
         Fungsi untuk menyimpan style yang ada di halaman web ke dalam database.
 
@@ -222,7 +251,8 @@ class CrawlUtils:
         db_cursor.execute(query, (page_id, style))
         db_cursor.close()
 
-    def insert_page_table(self, db_connection: pymysql.Connection, page_id: int, table: str) -> None:
+    def insert_page_table(self, db_connection: pymysql.Connection,
+                          page_id: int, table: str) -> None:
         """
         Fungsi untuk menyimpan table yang ada di halaman web ke dalam database.
 
@@ -237,7 +267,8 @@ class CrawlUtils:
         db_cursor.execute(query, (page_id, table))
         db_cursor.close()
 
-    def set_hot_url(self, db_connection: pymysql.Connection, id_page: int, hot_link: bool) -> None:
+    def set_hot_url(self, db_connection: pymysql.Connection, id_page: int,
+                    hot_link: bool) -> None:
         """
         Fungsi untuk menandakan hot URL pada halaman web ke dalam database.
 
@@ -252,9 +283,9 @@ class CrawlUtils:
         db_cursor.execute(query, (hot_link, id_page))
         db_cursor.close()
 
-    def insert_crawling(
-        self, db_connection: pymysql.Connection, start_urls: str, keyword: str, total_page: int, duration: int
-    ) -> int:
+    def insert_crawling(self, db_connection: pymysql.Connection,
+                        start_urls: str, keyword: str, total_page: int,
+                        duration: int) -> int:
         """
         Fungsi untuk menyimpan data crawling yang sudah dilakukan ke dalam database.
 
@@ -276,7 +307,8 @@ class CrawlUtils:
         db_cursor.close()
         return inserted_id
 
-    def update_page_duration_crawl(self, db_connection: pymysql.Connection, id_page: int, duration_crawl: int) -> None:
+    def update_page_duration_crawl(self, db_connection: pymysql.Connection,
+                                   id_page: int, duration_crawl: int) -> None:
         """
         Fungsi untuk menandakan hot URL pada halaman web ke dalam database.
 
@@ -291,9 +323,8 @@ class CrawlUtils:
         db_cursor.execute(query, (duration_crawl, id_page))
         db_cursor.close()
 
-    def update_crawling(
-        self, db_connection: pymysql.Connection, crawl_id: int, total_page: int, duration_crawl: int
-    ) -> None:
+    def update_crawling(self, db_connection: pymysql.Connection, crawl_id: int,
+                        total_page: int, duration_crawl: int) -> None:
         """
         Fungsi untuk memperbarui data crawling ke dalam database.
 
@@ -341,14 +372,16 @@ class CrawlUtils:
         """
         db = Database()
         db_connection = db.connect()
-        db_cursor = db_connection.cursor(pymysql.cursors.DictCursor)
+        db_cursor: pymysql.cursors.DictCursor = db_connection.cursor(
+            pymysql.cursors.DictCursor)
         id_pages_string = ",".join(map(str, id_pages))
-        query = "SELECT * FROM `page_information` WHERE id_page IN ({})".format(id_pages_string)
+        query = "SELECT * FROM `page_information` WHERE id_page IN ({})".format(
+            id_pages_string)
         db_cursor.execute(query)
         rows = db_cursor.fetchall()
         db_cursor.close()
         db.close_connection(db_connection)
-        return rows
+        return rows  #type: ignore
 
     def get_crawled_pages_api(self, start=None, length=None) -> list:
         """
@@ -367,13 +400,15 @@ class CrawlUtils:
         if start is None or length is None:
             db_cursor.execute("SELECT * FROM `page_information`")
         else:
-            db_cursor.execute("SELECT * FROM `page_information` LIMIT %s, %s", (start, length))
+            db_cursor.execute("SELECT * FROM `page_information` LIMIT %s, %s",
+                              (start, length))
         rows = db_cursor.fetchall()
         db_cursor.close()
         db.close_connection(db_connection)
-        return rows
+        return rows  #type: ignore
 
-    def start_insert_api(self, start_urls: str, keyword: str, duration_crawl: int) -> int:
+    def start_insert_api(self, start_urls: str, keyword: str,
+                         duration_crawl: int) -> int:
         """
         Fungsi untuk start crawling dan mendapatkan crawl id (API).
 
@@ -387,7 +422,8 @@ class CrawlUtils:
         """
         db = Database()
         db_connection = db.connect()
-        id_crawling = self.insert_crawling(db_connection, start_urls, keyword, 0, duration_crawl)
+        id_crawling = self.insert_crawling(db_connection, start_urls, keyword,
+                                           0, duration_crawl)
         db.close_connection(db_connection)
         return id_crawling
 
@@ -417,7 +453,8 @@ class CrawlUtils:
         """
         db = Database()
         db_connection = db.connect()
-        if db.check_value_in_table(db_connection, "page_information", "url", page_information["url"]):
+        if db.check_value_in_table(db_connection, "page_information", "url",
+                                   page_information["url"]):
             db.close_connection(db_connection)
             return
 
@@ -440,15 +477,18 @@ class CrawlUtils:
         for page_image in page_images:
             self.insert_page_image(db_connection, page_id, page_image["image"])
         for page_linking in page_linking:
-            self.insert_page_linking(db_connection, page_id, page_linking["outgoing_link"])
+            self.insert_page_linking(db_connection, page_id,
+                                     page_linking["outgoing_link"])
         for page_list_ in page_list:
             self.insert_page_list(db_connection, page_id, page_list_["list"])
         for page_script in page_scripts:
-            self.insert_page_script(db_connection, page_id, page_script["script"])
+            self.insert_page_script(db_connection, page_id,
+                                    page_script["script"])
         for page_style in page_styles:
             self.insert_page_style(db_connection, page_id, page_style["style"])
         for page_table in page_tables:
-            self.insert_page_table(db_connection, page_id, page_table["table_str"])
+            self.insert_page_table(db_connection, page_id,
+                                   page_table["table_str"])
         db.close_connection(db_connection)
 
 

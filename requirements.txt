@@ -5,6 +5,7 @@ pymysql
 python-dotenv
 psutil
 sklearn
+suffix-tree
 numpy
 pdoc3
 matplotlib

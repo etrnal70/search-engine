@@ -23,9 +23,9 @@ class BreadthFirstSearch:
         max_threads (int): Maksimal threads yang akan digunakan
     """
 
-    def __init__(
-        self, crawl_id: int, url_queue: queue.Queue, visited_urls: list, duration_sec: int, max_threads: int
-    ) -> None:
+    def __init__(self, crawl_id: int, url_queue: queue.Queue,
+                 visited_urls: list, duration_sec: int,
+                 max_threads: int) -> None:
         self.crawl_id = crawl_id
         self.url_queue = url_queue
         self.visited_urls = visited_urls
@@ -54,7 +54,8 @@ class BreadthFirstSearch:
                 target_url = self.url_queue.get(timeout=60)
                 if target_url not in self.visited_urls:
                     self.visited_urls.append(target_url)
-                    futures.append(executor.submit(self.scrape_page, target_url))
+                    futures.append(
+                        executor.submit(self.scrape_page, target_url))
             except queue.Empty:
                 if self.crawl_utils.running_thread_count(futures) > 0:
                     continue
@@ -136,7 +137,9 @@ class BreadthFirstSearch:
                 hot_link = 0
 
                 # check if the page information already exist
-                if self.db.check_value_in_table(db_connection, "page_information", "url", url):
+                if self.db.check_value_in_table(db_connection,
+                                                "page_information", "url",
+                                                url):
                     self.db.close_connection(db_connection)
                     return
 
@@ -165,57 +168,77 @@ class BreadthFirstSearch:
                     complete_url = urljoin(url, i["href"]).rstrip("/")
 
                     self.list_urls.append(complete_url)  # For  MSB
-                    self.crawl_utils.insert_page_linking(db_connection, page_id, complete_url)
+                    self.crawl_utils.insert_page_linking(
+                        db_connection, page_id, complete_url)
 
                     self.lock.acquire()
-                    if self.crawl_utils.is_valid_url(complete_url) and complete_url not in self.visited_urls:
+                    if self.crawl_utils.is_valid_url(
+                            complete_url
+                    ) and complete_url not in self.visited_urls:
                         self.url_queue.put(complete_url)
                     self.lock.release()
 
                 # extract tables
                 try:
                     for table in soup.findAll("table"):
-                        self.crawl_utils.insert_page_table(db_connection, page_id, table)
+                        self.crawl_utils.insert_page_table(
+                            db_connection, page_id, table)
+                except:
+                    pass
+
+                # extract paragraph
+                try:
+                    for paragraph in soup.findAll("p"):
+                        if paragraph.string is None:
+                            pass
+                        self.crawl_utils.insert_page_paragraph(
+                            db_connection, page_id, paragraph.string)
                 except:
                     pass
 
                 # extract lists
                 try:
                     for lists in soup.findAll("li"):
-                        self.crawl_utils.insert_page_list(db_connection, page_id, lists)
+                        self.crawl_utils.insert_page_list(
+                            db_connection, page_id, lists)
                 except:
                     pass
 
                 # extract forms
                 try:
                     for form in soup.findAll("form"):
-                        self.crawl_utils.insert_page_form(db_connection, page_id, form)
+                        self.crawl_utils.insert_page_form(
+                            db_connection, page_id, form)
                 except:
                     pass
 
                 try:
                     # extract images
                     for image in soup.findAll("img"):
-                        self.crawl_utils.insert_page_image(db_connection, page_id, image)
+                        self.crawl_utils.insert_page_image(
+                            db_connection, page_id, image)
                 except:
                     pass
 
                 try:
                     # extract style
                     for style in soup.findAll("style"):
-                        self.crawl_utils.insert_page_style(db_connection, page_id, style)
+                        self.crawl_utils.insert_page_style(
+                            db_connection, page_id, style)
                 except:
                     pass
 
                 try:
                     # extract script
                     for script in soup.findAll("script"):
-                        self.crawl_utils.insert_page_script(db_connection, page_id, script)
+                        self.crawl_utils.insert_page_script(
+                            db_connection, page_id, script)
                 except:
                     pass
 
                 page_duration_crawl = time.time() - page_start_time
-                self.crawl_utils.update_page_duration_crawl(db_connection, page_id, page_duration_crawl)
+                self.crawl_utils.update_page_duration_crawl(
+                    db_connection, page_id, page_duration_crawl)
                 self.db.close_connection(db_connection)
                 return
             return
@@ -230,7 +253,9 @@ class BreadthFirstSearch:
         Args:
             element (Any): Elemen HTML
         """
-        if element.parent.name in ["style", "script", "head", "title", "meta", "[document]"]:
+        if element.parent.name in [
+                "style", "script", "head", "title", "meta", "[document]"
+        ]:
             return False
         if isinstance(element, bs4.element.Comment):
             return False
