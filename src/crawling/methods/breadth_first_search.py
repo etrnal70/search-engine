@@ -175,7 +175,21 @@ class BreadthFirstSearch:
                 # extract tables
                 try:
                     for table in soup.findAll("table"):
-                        self.crawl_utils.insert_page_table(db_connection, page_id, table)
+                        self.crawl_utils.insert_page_table(
+                            db_connection, page_id, table)
+                except:
+                    pass
+
+                # TODO Extract following information
+                # 1. Is in anchor
+                # 2. Capitalization
+                # extract paragraph
+                try:
+                    for paragraph in soup.findAll("p"):
+                        if paragraph.string is None:
+                            pass
+                        self.crawl_utils.insert_page_paragraph(
+                            db_connection, page_id, paragraph)
                 except:
                     pass
 
