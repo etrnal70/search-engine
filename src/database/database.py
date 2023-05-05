@@ -147,6 +147,10 @@ class Database:
             )
             self.exec_query(
                 connection,
+                "DELETE FROM `page_paragraph`",
+            )
+            self.exec_query(
+                connection,
                 "DELETE FROM `page_list`",
             )
             self.exec_query(
@@ -204,6 +208,10 @@ class Database:
             )
             self.exec_query(
                 connection,
+                "CREATE TABLE `page_paragraph` ( `id_list` int PRIMARY KEY AUTO_INCREMENT, `page_id` int, `paragraph` text )",
+            )
+            self.exec_query(
+                connection,
                 "CREATE TABLE `page_list` ( `id_list` int PRIMARY KEY AUTO_INCREMENT, `page_id` int, `list` text )",
             )
             self.exec_query(
@@ -249,6 +257,10 @@ class Database:
             self.exec_query(
                 connection,
                 "ALTER TABLE `page_scripts` ADD CONSTRAINT `pagescript_pageinfo` FOREIGN KEY (`page_id`) REFERENCES `page_information` (`id_page`) ON DELETE CASCADE",
+            )
+            self.exec_query(
+                connection,
+                "ALTER TABLE `page_paragraph` ADD CONSTRAINT `pagelist_pageinfo` FOREIGN KEY (`page_id`) REFERENCES `page_information` (`id_page`) ON DELETE CASCADE",
             )
             self.exec_query(
                 connection,
