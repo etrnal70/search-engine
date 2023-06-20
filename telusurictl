@@ -1,0 +1,80 @@
+#!/usr/bin/python
+"""telusurictl
+
+CLI tool to control Telusuri search engine
+by using IPC mechanism (UNIX socket)
+
+TODO
+- telusurictl help
+- telusurictl status
+- telusurictl mode {indexer,crawler}
+- telusurictl logs {indexer,crawler}
+
+"""
+
+import socket
+import struct
+import argparse
+
+socket_path = "/tmp/telusuri_socket"
+
+
+def status():
+    print("status mode")
+    ipc(0x00)
+
+
+def mode():
+    print("mode mode")
+    ipc(0x01)
+
+
+def logs():
+    print("logs mode")
+    ipc(0x10)
+
+
+def help():
+    print(
+        "Invalid argument. Use 'telusurictl help' to see the list of available commands"
+    )
+
+
+def ipc(opt: int):
+    client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+
+    try:
+        client.connect(socket_path)
+        msg = struct.pack('@BB', 0x00, opt)
+        client.sendall(msg)
+    finally:
+        client.close()
+
+
+def inputHandler():
+    argParser = argparse.ArgumentParser(
+        prog="telusurictl",
+        description="A CLI tool to control Telusuri search engine using IPC",
+        epilog="Bismillah lulus tepat waktu :)")
+    subParser = argParser.add_subparsers(required=True, help="control options")
+
+    statusParser = subParser.add_parser("status")
+    statusParser.set_defaults(func=status)
+
+    helpParser = subParser.add_parser("help")
+    helpParser.set_defaults(func=help)
+
+    logsParser = subParser.add_parser("logs")
+    logsParser.add_argument("mode", choices=["crawler", "indexer"])
+    logsParser.set_defaults(func=logs)
+
+    modeParser = subParser.add_parser("mode")
+    modeParser.add_argument("mode", choices=["crawler", "indexer"])
+    modeParser.set_defaults(func=mode)
+
+    args = argParser.parse_args()
+    args.func()
+
+
+if __name__ == "__main__":
+    inputHandler()

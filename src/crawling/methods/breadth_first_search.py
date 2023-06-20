@@ -191,6 +191,13 @@ class BreadthFirstSearch:
                     for paragraph in soup.findAll("p"):
                         if paragraph.string is None:
                             pass
+                        # Skip if it's only single character and it's not
+                        # alphanumeric (symbols or space)
+                        if len(str(paragraph.string)) == 1 and not str(
+                                paragraph.string).isalnum():
+                            pass
+                        paragraph.string = paragraph.string.replace(
+                            '\r\n\xa0', ' ')
                         self.crawl_utils.insert_page_paragraph(
                             db_connection, page_id, paragraph.string)
                 except:
