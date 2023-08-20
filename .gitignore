@@ -1,2 +1,7 @@
 __pycache__/
 .env.production
+bin/
+include/
+lib/
+lib64/
+share/
