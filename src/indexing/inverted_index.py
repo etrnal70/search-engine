@@ -4,7 +4,7 @@ import shelve
 import socket
 import time
 from collections import defaultdict
-from heapq import nlargest, nsmallest
+from heapq import nlargest
 from itertools import combinations
 from re import match, sub
 from typing import Dict, List, Tuple, TypedDict, Union
@@ -16,7 +16,6 @@ from bitarray.util import ba2int
 from simphile import jaccard_similarity  #type: ignore
 
 from src.database.database import Database  #type: ignore
-from src.indexing.barrel_manager import Barrel
 from src.indexing.gst import GST
 
 # TODO should be on crawling
@@ -26,15 +25,17 @@ POSITION_MASK = 0b00000000000000000001111111111110
 CAPITAL_MASK = 0b00000000000000000000000000000001
 
 BARREL_COUNT = 128
-COMMON_WORD_RATIO = 0.01
-ELIMINATION_RATIO = 0.1
+COMMON_WORD_RATIO = 0.001
 LOWER_ELIMINATION_RATIO = 0.05
-PARTIAL_MATCH_OCCUR_FACTOR = 7
 UPPER_ELIMINATION_RATIO = 0.05
+
+PARTIAL_MATCH_OCCUR_FACTOR = 15
+EXACT_MATCH_FACTOR = 1
 
 PERSISTENT_WORDPAIRS_FILE = "telusuri_wordpairs.pkl"
 PERSISTENT_DOCPAIRS_FILE = "telusuri_docpairs.pkl"
 GST_FILE = "telusuri_gst.pkl"
+DOC_WORD_COUNT_FILE = "telusuri_docwordcount.pkl"
 CAPITAL_PATTERN = '^[A-Z].*[A-Z]$'
 
 # WordInfo: (position, isCommonWord, isCapital)
@@ -46,6 +47,14 @@ class GSTResult(TypedDict):
     index: int
     count: int
     query: str
+
+class Barrel:
+
+    __slots__ = ("lastAccessed","pairs", "isLoaded" )
+
+    def __init__(self) -> None:
+        self.pairs: Dict[str, List[int]] = {}
+        self.isLoaded = False
 
 
 class UserQuery:
@@ -131,7 +140,7 @@ class UserQuery:
             pos.sort()
 
             if len(pos) >= len(self.expectedPos):
-                marked = set(pos).intersection(self.rootHitlists)
+                marked = list(set(pos).intersection(self.rootHitlists))
 
                 curIter: List[int] = []
                 maxLen = len(pos)-1
@@ -220,7 +229,7 @@ class UserQuery:
                 # Exact match exist
                 if exactCount > 0:
                     self.documentRank[
-                        curDoc] = exactCount * self.globalModifier
+                        curDoc] = exactCount * self.globalModifier * EXACT_MATCH_FACTOR
                 elif len(subMatch) > 0:
                     # For submatch, get the highest submatch occurrence and
                     # calculate the result with the occurrence
@@ -244,8 +253,8 @@ class Indexer:
 
     __slots__ = ("db", "useGST", "documentPairs", "wordPairs", "commonWords",
                  "gst", "documentPersistence", "wordPersistence",
-                 "treePersistence", "sock", "documentBlacklist",
-                 "wordDocCount")
+                 "treePersistence", "docWordCountPersistence" ,"sock",
+                 "documentBlacklist", "wordDocCount")
 
     def __init__(self, db: Database, status: str, useGST: str,
                  barrelMode: str) -> None:
@@ -263,6 +272,14 @@ class Indexer:
             # Remove file if reindexing
             if os.path.exists(PERSISTENT_WORDPAIRS_FILE):
                 os.remove(PERSISTENT_WORDPAIRS_FILE)
+            if os.path.exists(DOC_WORD_COUNT_FILE):
+                os.remove(DOC_WORD_COUNT_FILE)
+
+
+        if status == "reindex":
+            self.docWordCountPersistence = open(DOC_WORD_COUNT_FILE, 'ab' )
+        else:
+            self.docWordCountPersistence = open(DOC_WORD_COUNT_FILE, 'rb')
 
         self.wordPersistence: shelve.Shelf[Barrel] = shelve.open(
             PERSISTENT_WORDPAIRS_FILE, protocol=pickle.HIGHEST_PROTOCOL)
@@ -330,6 +347,7 @@ class Indexer:
         start = time.perf_counter()
         for barrel in self.wordPersistence.values():
             self.wordPairs.update(barrel.pairs)
+        self.wordDocCount = pickle.load(self.docWordCountPersistence)
         end = time.perf_counter()
         print(f"Time elapsed restoring hitlists: {end - start:0.8f}s")
 
@@ -399,7 +417,7 @@ class Indexer:
         start = time.perf_counter()
         print("Generating document blacklists...")
         upperLimit = len(data) * UPPER_ELIMINATION_RATIO
-        lowerLimit = len(data) * LOWER_ELIMINATION_RATIO
+        len(data) * LOWER_ELIMINATION_RATIO
 
         self.documentBlacklist.extend(nlargest(int(upperLimit), data))
         # self.documentBlacklist.extend(nsmallest(int(lowerLimit), data))
@@ -407,7 +425,38 @@ class Indexer:
         end = time.perf_counter()
         print(f"Time elapsed generating blacklists: {end - start:0.4f}s")
 
+    # def storeIndexRemote(self):
+    #     print("Storing indexes...")
+    #     barrelSize = int(len(self.wordPairs) / 64)
+    #     print(f"Barrel size: {barrelSize}")
+    #     maxedOut = True
+    #     firstWord = ""
+    #     tempBarrel = Barrel()
+    #     for k, v in sorted(self.wordPairs.items(), key=lambda x: x[0]):
+    #         if maxedOut:
+    #             firstWord = k
+    #             maxedOut = False
+    #             tempBarrel = Barrel()
+    #
+    #         tempBarrel.pairs[k] = v
+    #
+    #         if len(tempBarrel.pairs) == barrelSize:
+    #             self.wordPersistence[firstWord] = tempBarrel
+    #             maxedOut = True
+    #
+    #     if self.useGST:
+    #         pickle.dump(self.documentPairs,
+    #                     self.documentPersistence,
+    #                     protocol=pickle.HIGHEST_PROTOCOL)
+    #         pickle.dump(self.gst.tree,
+    #                     self.treePersistence,
+    #                     protocol=pickle.HIGHEST_PROTOCOL)
+    #
+    #     print("Done storing indexes")
+    #     self.wordPersistence.sync()
+
     def storeIndex(self):
+        start = time.perf_counter()
         print("Storing indexes...")
         barrelSize = int(len(self.wordPairs) / 64)
         print(f"Barrel size: {barrelSize}")
@@ -420,11 +469,15 @@ class Indexer:
                 maxedOut = False
                 tempBarrel = Barrel()
 
-            tempBarrel.wordPairs[k] = v
+            tempBarrel.pairs[k] = v
 
-            if len(tempBarrel.wordPairs) == barrelSize:
+            if len(tempBarrel.pairs) == barrelSize:
                 self.wordPersistence[firstWord] = tempBarrel
                 maxedOut = True
+
+        pickle.dump(self.wordDocCount,
+                    self.docWordCountPersistence,
+                    protocol=pickle.HIGHEST_PROTOCOL)
 
         if self.useGST:
             pickle.dump(self.documentPairs,
@@ -434,7 +487,8 @@ class Indexer:
                         self.treePersistence,
                         protocol=pickle.HIGHEST_PROTOCOL)
 
-        print("Done storing indexes")
+        end = time.perf_counter()
+        print(f"Time elapsed storing index to persistent: {end - start:0.4f}s")
         self.wordPersistence.sync()
 
     def generateHitlists(self, docID: int, paragraphs: List[str]) -> int:
@@ -451,6 +505,7 @@ class Indexer:
             # TODO
             # Stripping information might be better done in crawling process
             paragraph = sub(r'\W+', ' ', paragraph)
+            # paragraph = sub('[^A-Za-z0-9 ]+', ' ', paragraph)
             for char in FILTERED_CHAR:
                 paragraph = paragraph.replace(char, ' ')
             words = str(paragraph).split()
@@ -496,6 +551,8 @@ class Indexer:
         docs: List[int] = []
         for data in sorted(query.documentRank.items(), key=lambda x: x[1]):
             docs.append(data[0])
+
+        print(docs)
 
         conn: pymysql.Connection[
             pymysql.cursors.Cursor] = self.db.connect()  #type: ignore
@@ -610,6 +667,7 @@ class Indexer:
         for k, v in docPairs.items():
             docList[k] = [d[0] for d in v]
 
+        # TODO
         # Get intersection
         if len(docList) > 1:
             for iter in range(1, len(docList.keys())):

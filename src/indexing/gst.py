@@ -8,6 +8,7 @@
 
 import re
 import sys
+import time
 from typing import List, Optional, Tuple, TypedDict, Union
 
 import pymysql.cursors
@@ -41,8 +42,12 @@ class GST:
         self.tree = Node("root")
 
     def generateTree(self):
+        start = time.perf_counter()
         db = self.getTitle()
         self.tree = self.makeTree(db)
+        end = time.perf_counter()
+        print(f"Time elapsed generating GST: {end - start:0.4f}s")
+
 
     def findTree(self, input: str) -> List[Tuple[int, int]]:
         (_, res) = self.searchTree(input)
@@ -59,15 +64,7 @@ class GST:
     def getTitle(self) -> List[DBResult]:
         connection: pymysql.Connection[
             pymysql.cursors.Cursor] = self.db.connect()  #type: ignore
-        # connection = pymysql.connect(host='localhost',
-        #                              user='root',
-        #                              password='toor',
-        #                              port=3308,
-        #                              database='crawler',
-        #                              charset='utf8mb4',
-        #                              cursorclass=pymysql.cursors.DictCursor,
-        #                              autocommit=True)
-        with connection.cursor() as cursor:
+        with connection.cursor(cursor=pymysql.cursors.DictCursor) as cursor:
             cursor.execute("SELECT id_page, title FROM page_information")
             result = cursor.fetchall()
         for data in result:
